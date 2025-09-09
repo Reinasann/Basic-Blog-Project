@@ -12,7 +12,7 @@ const API_BASE_URL = "/API";
 
 
 const GOOGLE_CLIENT_ID =
-  "999410734026-sbb6u8aki157j80gl0b1gkolhtvj482g.apps.googleusercontent.com";
+  "Your-Key";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -181,4 +181,5 @@ export default function Login() {
     </GoogleOAuthProvider>
   );
 }
+
 
