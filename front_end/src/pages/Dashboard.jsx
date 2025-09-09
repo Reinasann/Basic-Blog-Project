@@ -28,10 +28,10 @@ export default function Dashboard() {
     const role = localStorage.getItem("role");
     const username = localStorage.getItem("username");
     const userId = localStorage.getItem("user_id");
-    const API_BASE = "/API";
+    const API_BASE_URL = "/API";
 
     //upload to server
-    // const API_BASE = "http://student.crru.ac.th/661463026/BASIC-BLOG-API/API";
+    // const API_BASE_URL = "http://student.crru.ac.th/661463026/BASIC-BLOG-API/API";
 
     useEffect(() => {
         document.documentElement.setAttribute('data-bs-theme', isDarkMode ? 'dark' : 'light');
@@ -45,9 +45,9 @@ export default function Dashboard() {
         setLoading(true);
         try {
             const [usersRes, postsRes, categoriesRes] = await Promise.all([
-                fetch(`${API_BASE}/Users/read.php`),
-                fetch(`${API_BASE}/Posts/read.php`),
-                fetch(`${API_BASE}/Categories/read.php`),
+                fetch(`${API_BASE_URL}/Users/read.php`),
+                fetch(`${API_BASE_URL}/Posts/read.php`),
+                fetch(`${API_BASE_URL}/Categories/read.php`),
             ]);
             const usersData = await usersRes.json();
             const postsData = await postsRes.json();
@@ -60,7 +60,7 @@ export default function Dashboard() {
         } finally {
             setLoading(false);
         }
-    }, [role, navigate, API_BASE]);
+    }, [role, navigate, API_BASE_URL]);
 
     useEffect(() => {
         fetchData();
@@ -82,7 +82,7 @@ export default function Dashboard() {
             if (type === 'category') return 'Categories';
             return `${type.charAt(0).toUpperCase() + type.slice(1)}s`;
         }
-        const endpoint = `${API_BASE}/${getFolderName(type)}/${mode}.php`;
+        const endpoint = `${API_BASE_URL}/${getFolderName(type)}/${mode}.php`;
 
         if (type === 'post' && mode === 'create') {
             if (!userId) {
@@ -127,7 +127,7 @@ export default function Dashboard() {
             if (type === 'category') return 'Categories';
             return `${type.charAt(0).toUpperCase() + type.slice(1)}s`;
         }
-        const endpoint = `${API_BASE}/${getFolderName(type)}/delete.php`;
+        const endpoint = `${API_BASE_URL}/${getFolderName(type)}/delete.php`;
 
         try {
             const res = await fetch(endpoint, {

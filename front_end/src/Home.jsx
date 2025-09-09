@@ -1,33 +1,44 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import Swal from 'sweetalert2'; // ✅ 1. Import SweetAlert
+import Swal from 'sweetalert2';
 
-// ✅ 2. ไอคอนสำหรับปุ่มต่างๆ
+// ไอคอนสำหรับปุ่มต่างๆ
 const Icons = {
     Sun: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>,
     Moon: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>,
-    UpArrow: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 1.41-1.41L12 15.17l5.59-5.58L19 11l-7 7z"/></svg>,
+    UpArrow: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" transform="rotate(180)"><path d="m12 19-7-7 1.41-1.41L12 15.17l5.59-5.58L19 11l-7 7z"/></svg>,
 };
 
-// ✅ 3. Component สำหรับ Pagination
+// ✅ Component สำหรับ Pagination (ฉบับปรับปรุง)
 const Pagination = ({ postsPerPage, totalPosts, paginate, currentPage }) => {
     const pageNumbers = [];
-    for (let i = 1; i <= Math.ceil(totalPosts / postsPerPage); i++) {
+    const totalPages = Math.ceil(totalPosts / postsPerPage);
+    for (let i = 1; i <= totalPages; i++) {
         pageNumbers.push(i);
     }
 
-    if (pageNumbers.length <= 1) return null;
+    if (totalPages <= 1) return null;
 
     return (
-        <nav>
+        <nav aria-label="Page navigation">
             <ul className="pagination justify-content-center">
+                <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                    <button onClick={() => paginate(1)} className="page-link">« หน้าแรก</button>
+                </li>
+                <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                    <button onClick={() => paginate(currentPage - 1)} className="page-link">‹ ก่อนหน้า</button>
+                </li>
                 {pageNumbers.map(number => (
                     <li key={number} className={`page-item ${currentPage === number ? 'active' : ''}`}>
-                        <button onClick={() => paginate(number)} className="page-link">
-                            {number}
-                        </button>
+                        <button onClick={() => paginate(number)} className="page-link">{number}</button>
                     </li>
                 ))}
+                <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                    <button onClick={() => paginate(currentPage + 1)} className="page-link">ต่อไป ›</button>
+                </li>
+                 <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                    <button onClick={() => paginate(totalPages)} className="page-link">สุดท้าย »</button>
+                </li>
             </ul>
         </nav>
     );
@@ -47,47 +58,37 @@ function Home() {
   const [newPost, setNewPost] = useState({ title: "", content: "", category_id: "" });
   const [isEditing, setIsEditing] = useState(false);
   const [editPostData, setEditPostData] = useState(null);
-
-  // ✅ 4. State ใหม่สำหรับฟีเจอร์เพิ่มเติม
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [sortOrder, setSortOrder] = useState('latest');
   const [currentPage, setCurrentPage] = useState(1);
   const [postsPerPage, setPostsPerPage] = useState(10);
   const [showScrollTop, setShowScrollTop] = useState(false);
-
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  // ✅ State ใหม่สำหรับเก็บ ID ของโพสต์ที่ผู้ใช้ไลค์
+  const [likedPosts, setLikedPosts] = useState(new Set());
 
   const username = localStorage.getItem("username");
   const userId = localStorage.getItem("user_id");
   const role = localStorage.getItem("role");
   const navigate = useNavigate();
-  const API_BASE = "/API";
+  const API_BASE_URL = "/API";
 
   //upload to server
-  //const API_BASE = "http://student.crru.ac.th/661463026/BASIC-BLOG-API/API";
+  // const API_BASE_URL = "http://student.crru.ac.th/661463026/BASIC-BLOG-API/API";
 
-  // ✅ 5. useEffect สำหรับจัดการ Dark Mode และ Scroll-to-Top
   useEffect(() => {
     document.documentElement.setAttribute('data-bs-theme', isDarkMode ? 'dark' : 'light');
-    
-    const checkScrollTop = () => {
-        if (!showScrollTop && window.pageYOffset > 400) {
-            setShowScrollTop(true);
-        } else if (showScrollTop && window.pageYOffset <= 400) {
-            setShowScrollTop(false);
-        }
-    };
+    const checkScrollTop = () => { setShowScrollTop(window.pageYOffset > 400); };
     window.addEventListener('scroll', checkScrollTop);
     return () => window.removeEventListener('scroll', checkScrollTop);
-  }, [isDarkMode, showScrollTop]);
+  }, [isDarkMode]);
 
-  // 👉 Logout (ใช้ SweetAlert)
   const handleLogout = () => {
     Swal.fire({
       title: 'ต้องการออกจากระบบ?',
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
       confirmButtonText: 'ใช่, ออกจากระบบ',
       cancelButtonText: 'ยกเลิก'
     }).then((result) => {
@@ -98,35 +99,53 @@ function Home() {
     });
   };
 
-  // 👉 โหลด Posts
+  // ✅ useEffect สำหรับโหลดข้อมูลทั้งหมด (Posts และ User's Likes)
   useEffect(() => {
-    const fetchPosts = async () => {
+    const fetchAllData = async () => {
         setLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/Posts/read.php`);
-        const data = await res.json();
-        if (data.records) {
-          setPosts(data.records);
-          const uniqueCategories = [...new Set(data.records.map((post) => post.category_name || "อื่นๆ").filter(Boolean))];
+        // ดึงข้อมูลโพสต์ทั้งหมด
+        const postsRes = await fetch(`${API_BASE_URL}/Posts/read.php`);
+        const postsData = await postsRes.json();
+        
+        if (postsData.records) {
+          setPosts(postsData.records);
+          const uniqueCategories = [...new Set(postsData.records.map((post) => post.category_name).filter(Boolean))];
           setCategories(uniqueCategories);
         } else {
           setError("No posts found.");
         }
+
+        // ถ้าผู้ใช้ล็อกอินอยู่ ให้ดึงข้อมูลการไลค์
+        if (userId) {
+            const likedRes = await fetch(`${API_BASE_URL}/Likes/get_by_user.php?user_id=${userId}`);
+            const likedData = await likedRes.json();
+            if (likedData.success) {
+                // แปลง array of strings/numbers to a Set
+                setLikedPosts(new Set(likedData.liked_posts.map(String)));
+            }
+        }
+
       } catch (err) {
         setError("Server ไม่ตอบสนอง: " + err.message);
       } finally {
         setLoading(false);
       }
     };
-    fetchPosts();
-  }, []);
+    fetchAllData();
+  }, [userId]); // ให้ re-fetch เมื่อ user ID เปลี่ยน (เช่น ตอนล็อกอิน)
+  
+  const handleCloseModal = () => {
+      setSelectedPost(null);
+      setShowCreateModal(false);
+      setIsEditing(false);
+  };
 
-  // 👉 เปิด Modal และบันทึก Views
   const handleOpenPost = async (post) => {
     setSelectedPost(post);
     setIsEditing(false);
     try {
-      await fetch(`${API_BASE}/Posts/updateViews.php`, {
+      await fetch(`${API_BASE_URL}/Posts/updateViews.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ post_id: post.id }),
@@ -140,21 +159,22 @@ function Home() {
       console.error("❌ Update views error:", err);
     }
     try {
-      const res = await fetch(`${API_BASE}/Comments/read_one.php?post_id=${post.id}`);
+      const res = await fetch(`${API_BASE_URL}/Comments/read_one.php?post_id=${post.id}`);
       const data = await res.json();
       setComments(data.records || []);
     } catch (err) {
       setComments([]);
     }
   };
-
+  
+  // ✅ แก้ไข handleToggleLike เพื่ออัปเดต State `likedPosts`
   const handleToggleLike = async () => {
     if (!userId) {
       Swal.fire('กรุณาเข้าสู่ระบบ', 'คุณต้องเข้าสู่ระบบก่อนจึงจะสามารถกดไลค์ได้', 'warning');
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/Posts/toggleLike.php`, {
+      const res = await fetch(`${API_BASE_URL}/Posts/toggleLike.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ post_id: selectedPost.id, user_id: userId }),
@@ -162,6 +182,18 @@ function Home() {
       const data = await res.json();
       if (data.success) {
         const updatedLikes = data.liked ? (Number(selectedPost.likes) || 0) + 1 : (Number(selectedPost.likes) || 0) - 1;
+        
+        // อัปเดต State `likedPosts` ทันทีเพื่อเปลี่ยน UI
+        setLikedPosts(prev => {
+            const newSet = new Set(prev);
+            if (data.liked) {
+                newSet.add(String(selectedPost.id));
+            } else {
+                newSet.delete(String(selectedPost.id));
+            }
+            return newSet;
+        });
+
         setSelectedPost((prev) => ({ ...prev, likes: updatedLikes }));
         setPosts((prevPosts) =>
           prevPosts.map((p) =>
@@ -181,7 +213,7 @@ function Home() {
     }
     if (!commentText.trim()) return;
     try {
-      const res = await fetch(`${API_BASE}/Comments/create.php`, {
+      const res = await fetch(`${API_BASE_URL}/Comments/create.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -211,7 +243,7 @@ function Home() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/Posts/create.php`, {
+      const res = await fetch(`${API_BASE_URL}/Posts/create.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -227,11 +259,7 @@ function Home() {
         const newPostData = data.post;
         setPosts([newPostData, ...posts]);
         setNewPost({ title: "", content: "", category_id: "" });
-        const modalElement = document.getElementById('createPostModal');
-        const modalInstance = window.bootstrap?.Modal.getInstance(modalElement);
-        if (modalInstance) {
-          modalInstance.hide();
-        }
+        handleCloseModal();
         Swal.fire({ icon: 'success', title: 'สร้างโพสต์สำเร็จ!', showConfirmButton: false, timer: 1500 });
         handleOpenPost(newPostData);
       } else {
@@ -242,7 +270,7 @@ function Home() {
       Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาดในการเชื่อมต่อ!', text: err.message });
     }
   };
-
+  
   const handleEditPost = () => {
     setEditPostData(selectedPost);
     setIsEditing(true);
@@ -254,7 +282,7 @@ function Home() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/Posts/update.php`, {
+      const res = await fetch(`${API_BASE_URL}/Posts/update.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editPostData)
@@ -290,7 +318,7 @@ function Home() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          const res = await fetch(`${API_BASE}/Posts/delete.php`, {
+          const res = await fetch(`${API_BASE_URL}/Posts/delete.php`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: selectedPost.id })
@@ -298,12 +326,7 @@ function Home() {
           const resultData = await res.json();
           if (resultData.success) {
             setPosts(posts.filter(p => p.id !== selectedPost.id));
-            const modalElement = document.getElementById('postModal');
-            const modalInstance = window.bootstrap?.Modal.getInstance(modalElement);
-            if (modalInstance) {
-              modalInstance.hide();
-            }
-            setSelectedPost(null);
+            handleCloseModal();
             Swal.fire('ลบแล้ว!', 'โพสต์ของคุณถูกลบเรียบร้อยแล้ว', 'success');
           } else {
             Swal.fire('เกิดข้อผิดพลาด!', resultData.message, 'error');
@@ -315,18 +338,13 @@ function Home() {
     });
   };
 
-  // ✅ 6. Logic สำหรับการจัดเรียงและฟิลเตอร์ และ Pagination
   const processedPosts = useMemo(() => {
     let processablePosts = [...posts];
-
-    // Filtering
     let filtered = processablePosts.filter(
       (post) =>
         (selectedCategory === "all" || post.category_name === selectedCategory) &&
         post.title.toLowerCase().includes(search.toLowerCase())
     );
-
-    // Sorting
     switch (sortOrder) {
         case 'likes_desc':
             filtered.sort((a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0));
@@ -348,17 +366,13 @@ function Home() {
     return filtered;
   }, [posts, sortOrder, selectedCategory, search]);
 
-  // Pagination Logic
   const indexOfLastPost = currentPage * postsPerPage;
   const indexOfFirstPost = indexOfLastPost - postsPerPage;
   const currentPosts = processedPosts.slice(indexOfFirstPost, indexOfLastPost);
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-
   const isAuthor = selectedPost && userId && String(selectedPost.user_id) === String(userId);
-  const scrollTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   return (
     <>
@@ -369,22 +383,12 @@ function Home() {
             <ul className="navbar-nav ms-auto align-items-center">
               {username ? (
                 <>
-                  <li className="nav-item">
-                    <span className="nav-link text-success">👋 {username}</span>
-                  </li>
-                  {role === "admin" && (
-                    <li className="nav-item">
-                      <Link to="/dashboard" className="btn btn-warning btn-sm me-2">⚙️ Dashboard</Link>
-                    </li>
-                  )}
-                  <li className="nav-item">
-                    <button onClick={handleLogout} className="btn btn-danger btn-sm">🚪 Logout</button>
-                  </li>
+                  <li className="nav-item"><span className="nav-link text-success">👋 {username}</span></li>
+                  {role === "admin" && (<li className="nav-item"><Link to="/dashboard" className="btn btn-warning btn-sm me-2">⚙️ Dashboard</Link></li>)}
+                  <li className="nav-item"><button onClick={handleLogout} className="btn btn-danger btn-sm">🚪 Logout</button></li>
                 </>
               ) : (
-                <li className="nav-item">
-                  <Link to="/login" className="btn btn-primary btn-sm">🔑 Login</Link>
-                </li>
+                <li className="nav-item"><Link to="/login" className="btn btn-primary btn-sm">🔑 Login</Link></li>
               )}
                <li className="nav-item ms-3">
                     <button className="btn btn-outline-secondary" onClick={() => setIsDarkMode(!isDarkMode)}>
@@ -399,7 +403,7 @@ function Home() {
       <div className="container my-4">
         {username && (
           <div className="d-grid gap-2 mb-4">
-            <button className="btn btn-primary btn-lg" type="button" data-bs-toggle="modal" data-bs-target="#createPostModal">
+            <button className="btn btn-primary btn-lg" type="button" onClick={() => setShowCreateModal(true)}>
               ✍️ เขียนโพสต์ใหม่
             </button>
           </div>
@@ -434,7 +438,7 @@ function Home() {
                 <div className="list-group mb-4">
                     {currentPosts.length > 0 ? (
                         currentPosts.map((post) => (
-                    <button key={post.id} className="list-group-item list-group-item-action" data-bs-toggle="modal" data-bs-target="#postModal" onClick={() => handleOpenPost(post)}>
+                    <button key={post.id} className="list-group-item list-group-item-action" onClick={() => handleOpenPost(post)}>
                         <h5>{post.title}</h5>
                         <p className="text-truncate">{post.content}</p>
                         <small>📅 {new Date(post.created_at).toLocaleString()} | 👁 {post.views || 0} | 👍 {post.likes || 0}</small>
@@ -449,149 +453,79 @@ function Home() {
         )}
       </div>
 
-      {/* Scroll to Top Button */}
       {showScrollTop && (
-          <button onClick={scrollTop} className="btn btn-dark position-fixed bottom-0 end-0 m-3 rounded-circle p-3" style={{zIndex: 1050}}>
+          <button onClick={scrollTop} className="btn btn-dark position-fixed bottom-0 end-0 m-3 rounded-circle p-3" style={{zIndex: 1050, width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Icons.UpArrow />
           </button>
       )}
 
-      {/* ... (โค้ด Modal ทั้งหมดเหมือนเดิม) ... */}
-       <div className="modal fade" id="createPostModal" tabIndex="-1">
+      {/* Modal สำหรับสร้างโพสต์ใหม่ */}
+      <div className={`modal fade ${showCreateModal ? 'show' : ''}`} style={{ display: showCreateModal ? 'block' : 'none', backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
         <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
                 <div className="modal-header">
                     <h5 className="modal-title">✍️ สร้างโพสต์ใหม่</h5>
-                    <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" className="btn-close" onClick={handleCloseModal}></button>
                 </div>
                 <form onSubmit={handleCreatePost}>
                     <div className="modal-body">
-                        <div className="mb-3">
-                            <label className="form-label">Title</label>
-                            <input type="text" className="form-control" placeholder="หัวข้อโพสต์" value={newPost.title} onChange={(e) => setNewPost({ ...newPost, title: e.target.value })} />
-                        </div>
-                        <div className="mb-3">
-                            <label className="form-label">Content</label>
-                            <textarea className="form-control" placeholder="เนื้อหา..." rows="5" value={newPost.content} onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}></textarea>
-                        </div>
-                        <div className="mb-3">
-                            <label className="form-label">Category</label>
-                            <select className="form-select" value={newPost.category_id} onChange={(e) => setNewPost({ ...newPost, category_id: e.target.value })}>
-                                <option value="">เลือกหมวดหมู่</option>
-                                {categories.map((cat, i) => (<option key={i + 1} value={i + 1}>{cat}</option>))}
-                            </select>
-                        </div>
+                        <div className="mb-3"><label className="form-label">Title</label><input type="text" className="form-control" placeholder="หัวข้อโพสต์" value={newPost.title} onChange={(e) => setNewPost({ ...newPost, title: e.target.value })} /></div>
+                        <div className="mb-3"><label className="form-label">Content</label><textarea className="form-control" placeholder="เนื้อหา..." rows="5" value={newPost.content} onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}></textarea></div>
+                        <div className="mb-3"><label className="form-label">Category</label><select className="form-select" value={newPost.category_id} onChange={(e) => setNewPost({ ...newPost, category_id: e.target.value })}><option value="">เลือกหมวดหมู่</option>{categories.map((cat, i) => (<option key={i + 1} value={i + 1}>{cat}</option>))}</select></div>
                     </div>
                     <div className="modal-footer">
-                        <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                        <button type="button" className="btn btn-secondary" onClick={handleCloseModal}>ยกเลิก</button>
                         <button type="submit" className="btn btn-success">โพสต์</button>
                     </div>
                 </form>
             </div>
         </div>
       </div>
+      
+      {/* Modal สำหรับแสดง/แก้ไขโพสต์ */}
       {selectedPost && (
-        <div className="modal fade" id="postModal" tabIndex="-1">
+        <div className={`modal fade ${selectedPost ? 'show' : ''}`} style={{ display: selectedPost ? 'block' : 'none', backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
           <div className="modal-dialog modal-lg modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                {isEditing ? (
-                    <input 
-                        type="text" 
-                        className="form-control"
-                        value={editPostData.title}
-                        onChange={(e) => setEditPostData({...editPostData, title: e.target.value})}
-                    />
-                ) : (
-                    <h5 className="modal-title">{selectedPost.title}</h5>
-                )}
-                <button type="button" className="btn-close" data-bs-dismiss="modal" onClick={() => setIsEditing(false)}></button>
+                {isEditing ? (<input type="text" className="form-control" value={editPostData.title} onChange={(e) => setEditPostData({...editPostData, title: e.target.value})}/>) : (<h5 className="modal-title">{selectedPost.title}</h5>)}
+                <button type="button" className="btn-close" onClick={handleCloseModal}></button>
               </div>
               <div className="modal-body">
                 {isEditing ? (
                     <form>
-                        <div className="mb-3">
-                            <label className="form-label">Content</label>
-                            <textarea 
-                                className="form-control" 
-                                rows="10"
-                                value={editPostData.content}
-                                onChange={(e) => setEditPostData({...editPostData, content: e.target.value})}
-                            ></textarea>
-                        </div>
-                        <div className="mb-3">
-                            <label className="form-label">Category</label>
-                            <select 
-                                className="form-select" 
-                                value={editPostData.category_id} 
-                                onChange={(e) => setEditPostData({...editPostData, category_id: e.target.value})}
-                            >
-                                {categories.map((cat, i) => (
-                                    <option key={i + 1} value={i + 1}>{cat}</option> 
-                                ))}
-                            </select>
-                        </div>
-                         <div className="mb-3">
-                            <label className="form-label">Status</label>
-                            <select 
-                                className="form-select" 
-                                value={editPostData.status}
-                                onChange={(e) => setEditPostData({...editPostData, status: e.target.value})}
-                            >
-                                <option value="draft">Draft</option>
-                                <option value="published">Published</option>
-                            </select>
-                        </div>
+                        <div className="mb-3"><label className="form-label">Content</label><textarea className="form-control" rows="10" value={editPostData.content} onChange={(e) => setEditPostData({...editPostData, content: e.target.value})}></textarea></div>
+                        <div className="mb-3"><label className="form-label">Category</label><select className="form-select" value={editPostData.category_id} onChange={(e) => setEditPostData({...editPostData, category_id: e.target.value})}>{categories.map((cat, i) => (<option key={i + 1} value={i + 1}>{cat}</option>))}</select></div>
+                         <div className="mb-3"><label className="form-label">Status</label><select className="form-select" value={editPostData.status} onChange={(e) => setEditPostData({...editPostData, status: e.target.value})}><option value="draft">Draft</option><option value="published">Published</option></select></div>
                     </form>
                 ) : (
                     <>
-                        <p>{selectedPost.content}</p>
-                        <hr />
+                        <p>{selectedPost.content}</p><hr />
                         <p><strong>👤 ผู้เขียน:</strong> {selectedPost.username}</p>
                         <p><strong>📅 วันที่เขียน:</strong> {new Date(selectedPost.created_at).toLocaleString()}</p>
                         <p><strong>👁 Views:</strong> {selectedPost.views || 0}</p>
                         <p><strong>👍 Likes:</strong> {selectedPost.likes || 0}</p>
-                        
-                        <button className="btn btn-outline-primary me-2" onClick={handleToggleLike}>👍 Like</button>
+                        {likedPosts.has(String(selectedPost.id)) ? (
+                            <button className="btn btn-primary me-2" onClick={handleToggleLike}>❤️ คุณถูกใจอยู่</button>
+                        ) : (
+                            <button className="btn btn-outline-primary me-2" onClick={handleToggleLike}>👍 Like</button>
+                        )}
                         <hr/>
                         <h6 className="mt-3">💬 Comments</h6>
                         <div className="mb-2">
-                          {comments.length > 0 ? (
-                            comments.map((c, i) => (
-                              <div key={i} className="border-bottom pb-2 mb-2">
-                                <strong>{c.user || "User"}</strong>: {c.content || c.text}
-                                <br />
-                                <small className="text-muted">{new Date(c.created_at).toLocaleString()}</small>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-muted">ยังไม่มีความคิดเห็น</p>
-                          )}
+                          {comments.length > 0 ? (comments.map((c, i) => (<div key={i} className="border-bottom pb-2 mb-2"><strong>{c.user || "User"}</strong>: {c.content || c.text}<br /><small className="text-muted">{new Date(c.created_at).toLocaleString()}</small></div>))) : (<p className="text-muted">ยังไม่มีความคิดเห็น</p>)}
                         </div>
-                        {username && (
-                          <div className="input-group">
-                            <input type="text" className="form-control" placeholder="เขียนความคิดเห็น..." value={commentText} onChange={(e) => setCommentText(e.target.value)} />
-                            <button className="btn btn-success" onClick={handleAddComment}>ส่ง</button>
-                          </div>
-                        )}
+                        {username && (<div className="input-group"><input type="text" className="form-control" placeholder="เขียนความคิดเห็น..." value={commentText} onChange={(e) => setCommentText(e.target.value)} /><button className="btn btn-success" onClick={handleAddComment}>ส่ง</button></div>)}
                     </>
                 )}
               </div>
               <div className="modal-footer">
                 {isEditing ? (
-                    <>
-                        <button className="btn btn-secondary" onClick={() => setIsEditing(false)}>ยกเลิก</button>
-                        <button className="btn btn-primary" onClick={handleUpdatePost}>บันทึกการเปลี่ยนแปลง</button>
-                    </>
+                    <><button className="btn btn-secondary" onClick={() => setIsEditing(false)}>ยกเลิก</button><button className="btn btn-primary" onClick={handleUpdatePost}>บันทึกการเปลี่ยนแปลง</button></>
                 ) : (
                     <>
-                        {isAuthor && (
-                            <>
-                                <button className="btn btn-outline-danger me-auto" onClick={handleDeletePost}>ลบโพสต์</button>
-                                <button className="btn btn-outline-warning" onClick={handleEditPost}>แก้ไขโพสต์</button>
-                            </>
-                        )}
-                        <button className="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                        {isAuthor && (<><button className="btn btn-outline-danger me-auto" onClick={handleDeletePost}>ลบโพสต์</button><button className="btn btn-outline-warning" onClick={handleEditPost}>แก้ไขโพสต์</button></>)}
+                        <button className="btn btn-secondary" onClick={handleCloseModal}>ปิด</button>
                     </>
                 )}
               </div>
@@ -604,4 +538,3 @@ function Home() {
 }
 
 export default Home;
-

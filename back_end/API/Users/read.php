@@ -4,9 +4,13 @@ header("Access-Control-Allow-Methods: GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Content-Type: application/json; charset=UTF-8");
 
-include_once '../../config/database.php';
-include_once '../../models/User.php';
+// ✅ **จุดแก้ไข:** เปลี่ยนวิธีการเรียกไฟล์ให้แม่นยำขึ้น
+// dirname(__DIR__, 2) จะหมายถึงการถอยหลังไป 2 โฟลเดอร์จากตำแหน่งปัจจุบัน (API/Users -> API -> back_end)
+// ทำให้หาไฟล์เจอเสมอ ไม่ว่าจะรันจากที่ไหน
+include_once dirname(__DIR__, 2) . '/config/database.php';
+include_once dirname(__DIR__, 2) . '/models/User.php';
 
+// บรรทัดด้านล่างนี้ทำงานถูกต้องอยู่แล้ว ไม่ต้องแก้ไข
 $database = new Database();
 $db = $database->getConnection();
 
@@ -24,12 +28,11 @@ if ($num > 0) {
 
         $user_item = [
             "id"         => $id,
-            "google_id"  => $google_id ?? null,  // ✅ ป้องกัน NULL
+            "google_id"  => $google_id ?? null,
             "username"   => $username,
             "email"      => $email,
             "role"       => $role,
             "created_at" => $created_at,
-            //"updated_at" => $updated_at
         ];
 
         $users_arr["records"][] = $user_item;

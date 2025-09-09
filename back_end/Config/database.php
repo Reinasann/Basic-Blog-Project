@@ -6,7 +6,7 @@ class Database {
     private $password = "";
 
 
-    // //upload to server
+    //upload to server
     // private $host = "student.crru.ac.th";
     // private $db_name = "db_661463026";
     // private $username = "661463026";

@@ -10,6 +10,7 @@ import Register from './components/Register';
 
 
 ReactDOM.createRoot(document.getElementById("root")).render(
+  // <BrowserRouter basename="/661463026/BASIC-BLOG">
   <BrowserRouter>
     <Routes>
       <Route path="/" element={<Home />} />
