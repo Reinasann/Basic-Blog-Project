@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import Swal from 'sweetalert2';
-import { UserModal, PostModal, CategoryModal, ConfirmDeleteModal } from '../components/Modals'; // ✅ 1. แก้ไข Path การ import
+import { PostModal, CategoryModal, UserModal, ConfirmDeleteModal } from '../components/Modals';
 
-// (Icons component remains the same)
+// Icon components remain the same
 const Icons = {
     Users: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
     Posts: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h4"/><path d="M18 18H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h13v14Z"/><path d="M8 6h8"/><path d="M8 10h8"/><path d="M8 14h4"/></svg>,
@@ -14,9 +13,8 @@ const Icons = {
     Moon: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>,
 };
 
-
 export default function Dashboard() {
-    const [activeTab, setActiveTab] = useState("users");
+    const [activeTab, setActiveTab] = useState("posts");
     const [users, setUsers] = useState([]);
     const [posts, setPosts] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -24,14 +22,23 @@ export default function Dashboard() {
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [modal, setModal] = useState({ type: null, mode: null, data: null });
 
+    const [postImages, setPostImages] = useState([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const dragItem = useRef();
+    const dragOverItem = useRef();
+
     const navigate = useNavigate();
     const role = localStorage.getItem("role");
     const username = localStorage.getItem("username");
     const userId = localStorage.getItem("user_id");
-    const API_BASE_URL = "/API";
 
-    //upload to server
-    // const API_BASE_URL = "http://student.crru.ac.th/661463026/BASIC-BLOG-API/API";
+    // in local host
+    const API_BASE_URL = "/API";
+    const IMG_BASE_URL = "http://localhost/Basic-Blog/back_end";
+
+    // upload to server
+    // const API_BASE_URL = "https://student.crru.ac.th/661463026/BASIC-BLOG-API/API";
+    // const IMG_BASE_URL = "https://student.crru.ac.th/661463026/BASIC-BLOG-API";
 
     useEffect(() => {
         document.documentElement.setAttribute('data-bs-theme', isDarkMode ? 'dark' : 'light');
@@ -67,30 +74,115 @@ export default function Dashboard() {
     }, [fetchData]);
 
     const handleOpenModal = (type, mode, data = null) => {
+        if (type === 'post' && (mode === 'edit' || mode === 'add')) {
+            const existingImages = (mode === 'edit' && data.image_urls)
+              ? data.image_urls.split(',').filter(Boolean).map(name => ({
+                  id: name, url: `${IMG_BASE_URL}/IMG/Posts/${name}`, isNew: false, file: null
+                }))
+              : [];
+            setPostImages(existingImages);
+        }
         setModal({ type, mode, data });
     };
 
     const handleCloseModal = () => {
         setModal({ type: null, mode: null, data: null });
+        setPostImages([]);
+    };
+
+    const handleFileChange = (e) => {
+        const files = Array.from(e.target.files).map((file, index) => ({
+            id: `new_${Date.now()}_${index}`, file, url: URL.createObjectURL(file), isNew: true
+        }));
+        setPostImages(prev => [...prev, ...files]);
+    };
+
+    const removeImage = (id) => {
+        setPostImages(prev => prev.filter(image => image.id !== id));
+    };
+    
+    const handleDragStart = (e, position) => { dragItem.current = position; };
+    const handleDragEnter = (e, position) => { dragOverItem.current = position; };
+    
+    const handleDrop = () => {
+        const copyListItems = [...postImages];
+        const dragItemContent = copyListItems[dragItem.current];
+        copyListItems.splice(dragItem.current, 1);
+        copyListItems.splice(dragOverItem.current, 0, dragItemContent);
+        dragItem.current = null;
+        dragOverItem.current = null;
+        setPostImages(copyListItems);
     };
 
     const handleSave = async (type, formData) => {
-        const mode = formData.id ? 'update' : 'create';
-        
-        // ✅ 2. แก้ไข Logic การสร้าง Endpoint ให้ถูกต้อง
-        const getFolderName = (type) => {
-            if (type === 'category') return 'Categories';
-            return `${type.charAt(0).toUpperCase() + type.slice(1)}s`;
+        if (type === 'post') {
+            await handlePostSave(formData);
+        } else {
+            await handleGenericSave(type, formData);
         }
-        const endpoint = `${API_BASE_URL}/${getFolderName(type)}/${mode}.php`;
+    };
+    
+    const handlePostSave = async (formData) => {
+        setIsUploading(true);
+        const isCreating = !formData.id;
 
-        if (type === 'post' && mode === 'create') {
-            if (!userId) {
-                Swal.fire('Error', 'ไม่พบ User ID ของผู้สร้างโพสต์', 'error');
-                return;
+        try {
+            const newImageFiles = postImages.filter(img => img.isNew).map(img => img.file);
+            let newUploadedFileNames = [];
+
+            if (newImageFiles.length > 0) {
+                const uploadFormData = new FormData();
+                newImageFiles.forEach(file => uploadFormData.append('images[]', file));
+                const uploadRes = await fetch(`${API_BASE_URL}/Image/upload.php`, { method: 'POST', body: uploadFormData });
+                const uploadResult = await uploadRes.json();
+                if (!uploadResult.success) throw new Error(uploadResult.message || 'Image upload failed');
+                newUploadedFileNames = uploadResult.fileNames;
             }
-            formData.user_id = userId;
+
+            if (!isCreating && modal.data.image_urls) {
+                const originalImageNames = modal.data.image_urls.split(',');
+                const currentImageNames = postImages.filter(img => !img.isNew).map(img => img.id);
+                const imagesToDelete = originalImageNames.filter(name => !currentImageNames.includes(name));
+                if (imagesToDelete.length > 0) {
+                    await fetch(`${API_BASE_URL}/Image/delete.php`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filenames: imagesToDelete })
+                    });
+                }
+            }
+            
+            const existingImageNames = postImages.filter(img => !img.isNew).map(img => img.id);
+            const finalImageNames = [...existingImageNames, ...newUploadedFileNames];
+            
+            const payload = { 
+                ...formData,
+                image_urls: finalImageNames.join(','),
+                user_id: isCreating ? userId : formData.user_id,
+            };
+
+            const endpoint = `${API_BASE_URL}/Posts/${isCreating ? 'create' : 'update'}.php`;
+            const res = await fetch(endpoint, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+
+            if (result.success) {
+                handleCloseModal();
+                fetchData();
+            } else {
+                throw new Error(result.message || 'Failed to save post');
+            }
+        } catch (error) {
+            console.error('Post save error:', error);
+        } finally {
+            setIsUploading(false);
         }
+    };
+
+    const handleGenericSave = async (type, formData) => {
+        const mode = formData.id ? 'update' : 'create';
+        const getFolderName = (t) => t === 'category' ? 'Categories' : 'Users';
+        const endpoint = `${API_BASE_URL}/${getFolderName(type)}/${mode}.php`;
 
         try {
             const res = await fetch(endpoint, {
@@ -98,54 +190,50 @@ export default function Dashboard() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
             });
-             if (!res.ok) {
-                const errorText = await res.text();
-                throw new Error(`Server responded with ${res.status}: ${errorText}`);
-            }
             const result = await res.json();
             if (result.success) {
                 handleCloseModal();
                 await fetchData();
-                Swal.fire({
-                    icon: 'success',
-                    title: 'บันทึกสำเร็จ!',
-                    showConfirmButton: false,
-                    timer: 1500
-                });
             } else {
-                 Swal.fire('เกิดข้อผิดพลาด!', result.message || 'ไม่สามารถบันทึกข้อมูลได้', 'error');
+               console.error("Save failed:", result.message);
             }
         } catch (error) {
             console.error('API Error:', error);
-            Swal.fire('เกิดข้อผิดพลาด!', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้', 'error');
         }
     };
 
+
     const handleDelete = async () => {
         const { type, data } = modal;
-         const getFolderName = (type) => {
-            if (type === 'category') return 'Categories';
-            return `${type.charAt(0).toUpperCase() + type.slice(1)}s`;
+        
+        if (type === 'post' && data.image_urls) {
+            const filenames = data.image_urls.split(',').filter(Boolean);
+            if (filenames.length > 0) {
+                try {
+                    await fetch(`${API_BASE_URL}/Image/delete.php`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filenames })
+                    });
+                } catch (error) {
+                    console.error("Image deletion failed, proceeding with post deletion:", error);
+                }
+            }
         }
+        
+        const getFolderName = (t) => (t === 'post' ? 'Posts' : (t === 'category' ? 'Categories' : 'Users'));
         const endpoint = `${API_BASE_URL}/${getFolderName(type)}/delete.php`;
-
+        
         try {
             const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: data.id }),
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: data.id })
             });
             const result = await res.json();
             if (result.success) {
                 handleCloseModal();
-                await fetchData();
-                // Swal for delete is now handled inside ConfirmDeleteModal
-            } else {
-                Swal.fire('เกิดข้อผิดพลาด!', result.message || 'ไม่สามารถลบข้อมูลได้', 'error');
+                fetchData();
             }
         } catch (error) {
-            console.error('API Error:', error);
-             Swal.fire('เกิดข้อผิดพลาด!', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้', 'error');
+            console.error("Deletion error:", error);
         }
     };
 
@@ -157,16 +245,27 @@ export default function Dashboard() {
                 title: 'Users Management', icon: <Icons.Users />, headers: ['ID', 'Username', 'Email', 'Role', 'Created', 'Actions'], data: users,
                 renderRow: (item) => (<>
                     <td>{item.id}</td><td>{item.username}</td><td>{item.email}</td>
-                    <td><span className={`badge ${item.role === 'admin' ? 'bg-danger' : item.role === 'author' ? 'bg-warning' : 'bg-secondary'}`}>{item.role}</span></td>
+                    <td><span className={`badge ${item.role === 'admin' ? 'bg-danger' : 'bg-secondary'}`}>{item.role}</span></td>
                     <td>{new Date(item.created_at).toLocaleDateString()}</td>
                 </>)
             },
             posts: {
-                title: 'Posts Management', icon: <Icons.Posts />, headers: ['ID', 'Title', 'Author', 'Category', 'Status', 'Actions'], data: posts,
-                renderRow: (item) => (<>
-                    <td>{item.id}</td><td>{item.title}</td><td>{item.username || 'N/A'}</td><td>{item.category_name || 'N/A'}</td>
-                    <td><span className={`badge ${item.status === 'published' ? 'bg-success' : 'bg-secondary'}`}>{item.status}</span></td>
-                </>)
+                title: 'Posts Management', icon: <Icons.Posts />, headers: ['Image', 'ID', 'Title', 'Author', 'Category', 'Status', 'Actions'], data: posts,
+                renderRow: (item) => {
+                    const firstImage = item.image_urls ? item.image_urls.split(',')[0].trim() : null;
+                    return (
+                    <>
+                        <td>
+                            {firstImage ? (
+                                <img src={`${IMG_BASE_URL}/IMG/Posts/${firstImage}`} alt={item.title} style={{width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px'}}/>
+                            ) : (
+                                <div style={{width: '50px', height: '50px', backgroundColor: '#e9ecef', borderRadius: '4px'}}></div>
+                            )}
+                        </td>
+                        <td>{item.id}</td><td>{item.title}</td><td>{item.username || 'N/A'}</td><td>{item.category_name || 'N/A'}</td>
+                        <td><span className={`badge ${item.status === 'published' ? 'bg-success' : 'bg-secondary'}`}>{item.status}</span></td>
+                    </>
+                )}
             },
             categories: {
                 title: 'Categories Management', icon: <Icons.Categories />, headers: ['ID', 'Name', 'Slug', 'Actions'], data: categories,
@@ -175,12 +274,7 @@ export default function Dashboard() {
         };
         
         const currentConfig = tableConfig[activeTab];
-
-        const getTypeName = (tab) => {
-            if (tab === 'categories') return 'category';
-            return tab.slice(0, -1);
-        }
-        const typeName = getTypeName(activeTab);
+        const typeName = activeTab === 'categories' ? 'category' : activeTab.slice(0, -1);
 
         return (
             <div className="card shadow-sm border-0">
@@ -212,7 +306,7 @@ export default function Dashboard() {
                 </div>
             </div>
         );
-    }, [activeTab, users, posts, categories, loading]);
+    }, [activeTab, users, posts, categories, loading, IMG_BASE_URL]);
 
     return (
         <div className="d-flex vh-100 bg-body-tertiary">
@@ -222,7 +316,7 @@ export default function Dashboard() {
                 </Link>
                 <hr />
                 <ul className="nav nav-pills flex-column mb-auto">
-                     {[
+                    {[
                         { key: 'users', label: 'Users', icon: <Icons.Users /> },
                         { key: 'posts', label: 'Posts', icon: <Icons.Posts /> },
                         { key: 'categories', label: 'Categories', icon: <Icons.Categories /> }
@@ -257,40 +351,29 @@ export default function Dashboard() {
             </main>
             
             {modal.type === 'user' && modal.mode !== 'delete' && (
-                <UserModal
-                    isOpen={true}
-                    mode={modal.mode}
-                    initialData={modal.data}
-                    onClose={handleCloseModal}
-                    onSave={(formData) => handleSave('user', formData)}
-                />
+                <UserModal mode={modal.mode} initialData={modal.data} onClose={handleCloseModal} onSave={handleSave} />
             )}
             {modal.type === 'post' && modal.mode !== 'delete' && (
                 <PostModal
-                    isOpen={true}
                     mode={modal.mode}
                     initialData={modal.data}
                     onClose={handleCloseModal}
-                    onSave={(formData) => handleSave('post', formData)}
+                    onSave={handleSave}
                     categories={categories}
+                    images={postImages}
+                    onFileChange={handleFileChange}
+                    onRemoveImage={removeImage}
+                    onDragStart={handleDragStart}
+                    onDragEnter={handleDragEnter}
+                    onDrop={handleDrop}
+                    isUploading={isUploading}
                 />
             )}
             {modal.type === 'category' && modal.mode !== 'delete' && (
-                <CategoryModal
-                    isOpen={true}
-                    mode={modal.mode}
-                    initialData={modal.data}
-                    onClose={handleCloseModal}
-                    onSave={(formData) => handleSave('category', formData)}
-                />
+                <CategoryModal mode={modal.mode} initialData={modal.data} onClose={handleCloseModal} onSave={handleSave} />
             )}
             {modal.mode === 'delete' && (
-                <ConfirmDeleteModal
-                    isOpen={true}
-                    itemType={modal.type}
-                    onClose={handleCloseModal}
-                    onConfirm={handleDelete}
-                />
+                <ConfirmDeleteModal itemType={modal.type} onClose={handleCloseModal} onConfirm={handleDelete} />
             )}
         </div>
     );

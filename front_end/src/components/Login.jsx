@@ -8,7 +8,7 @@ import Swal from 'sweetalert2'; // ✅ **จุดแก้ไขที่ 1:** 
 const API_BASE_URL = "/API";
 
 //upload to server
-// const API_BASE_URL = "http://student.crru.ac.th/661463026/BASIC-BLOG-API/API";
+// const API_BASE_URL = "https://student.crru.ac.th/661463026/BASIC-BLOG-API/API";
 
 
 const GOOGLE_CLIENT_ID =

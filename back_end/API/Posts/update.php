@@ -18,28 +18,32 @@ $db = $database->getConnection();
 $post = new Post($db);
 $data = json_decode(file_get_contents("php://input"));
 
+// ตรวจสอบว่าได้รับข้อมูลที่จำเป็นครบถ้วน รวมถึง image_urls
 if (
     !empty($data->id) &&
     !empty($data->title) &&
     isset($data->content) &&
     isset($data->category_id) &&
-    isset($data->status)
+    isset($data->status) &&
+    isset($data->image_urls) // เพิ่มการตรวจสอบ `image_urls`
 ) {
     $post->id = $data->id;
     $post->title = $data->title;
     $post->content = $data->content;
     $post->category_id = $data->category_id;
     $post->status = $data->status;
+    $post->image_urls = $data->image_urls; // ✅ **จุดแก้ไข:** รับค่า image_urls มาใส่ใน object
 
     if($post->update()) {
-        // ✅ **จุดแก้ไข:** หลังจากอัปเดตสำเร็จ ให้ดึงข้อมูลโพสต์ฉบับเต็มกลับมา
+        // หลังจากอัปเดตสำเร็จ ให้ดึงข้อมูลโพสต์ฉบับเต็มกลับมาเพื่ออัปเดตหน้าเว็บ
         $query = "SELECT 
                     p.id, p.user_id, p.title, p.content, p.status, p.category_id,
-                    p.created_at, p.view_count AS views, p.like_count AS likes,
-                    u.username, c.name as category_name
+                    p.image_urls, p.created_at, p.view_count AS views, p.like_count AS likes,
+                    (SELECT COUNT(c.id) FROM comments c WHERE c.post_id = p.id) as comment_count,
+                    u.username, cat.name as category_name
                   FROM posts p
                   LEFT JOIN users u ON p.user_id = u.id
-                  LEFT JOIN categories c ON p.category_id = c.id
+                  LEFT JOIN categories cat ON p.category_id = cat.id
                   WHERE p.id = :id";
         
         $stmt = $db->prepare($query);
@@ -51,16 +55,13 @@ if (
         echo json_encode([
             'success' => true, 
             'message' => 'Post Updated Successfully',
-            'post' => $updated_post_data // <-- ส่งข้อมูลโพสต์ฉบับเต็มกลับไปด้วย
+            'post' => $updated_post_data 
         ]);
-
     } else {
         http_response_code(503);
-        echo json_encode(['success' => false, 'message' => 'Failed to execute update query.']);
+        echo json_encode(['success' => false, 'message' => 'Unable to update post.']);
     }
 } else {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Incomplete data for update.']);
+    echo json_encode(['success' => false, 'message' => 'Incomplete data.']);
 }
-?>
-

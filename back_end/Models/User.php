@@ -30,11 +30,12 @@ class User {
 
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize data (ป้องกันการโจมตี)
-        $this->username = htmlspecialchars(strip_tags($this->username));
-        $this->email = htmlspecialchars(strip_tags($this->email));
-        $this->role = htmlspecialchars(strip_tags($this->role));
-        $this->google_id = htmlspecialchars(strip_tags($this->google_id));
+        // ✅ **จุดแก้ไข:** ใช้ Null Coalescing Operator (??) เพื่อกำหนดค่าเริ่มต้น
+        // ป้องกันการส่งค่า null เข้าฟังก์ชัน strip_tags()
+        $this->username = htmlspecialchars(strip_tags($this->username ?? ''));
+        $this->email = htmlspecialchars(strip_tags($this->email ?? ''));
+        $this->role = htmlspecialchars(strip_tags($this->role ?? 'reader')); // กำหนด role เริ่มต้นถ้าไม่มี
+        $this->google_id = htmlspecialchars(strip_tags($this->google_id ?? ''));
 
         // Hash the password before saving
         $password_hash = password_hash($this->password, PASSWORD_BCRYPT);
@@ -69,9 +70,7 @@ class User {
     
     // UPDATE user: แก้ไขข้อมูลผู้ใช้โดย Admin
     function update(){
-        // ตรวจสอบว่ามีการส่งรหัสผ่านใหม่มาด้วยหรือไม่
         $password_set = !empty($this->password) ? ", password = :password" : "";
-
         $query = "UPDATE " . $this->table_name . "
                   SET
                     username = :username,
@@ -95,14 +94,12 @@ class User {
         $stmt->bindParam(':email', $this->email);
         $stmt->bindParam(':role', $this->role);
 
-        // ถ้ามีการส่งรหัสผ่านใหม่มา ให้ทำการ hash และ bind ค่า
         if(!empty($this->password)){
             $this->password = htmlspecialchars(strip_tags($this->password));
             $hashed_password = password_hash($this->password, PASSWORD_BCRYPT);
             $stmt->bindParam(':password', $hashed_password);
         }
 
-        // Execute query
         if($stmt->execute()){
             return true;
         }
@@ -113,19 +110,12 @@ class User {
     function delete(){
         $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
         $stmt = $this->conn->prepare($query);
-
-        // Sanitize data
         $this->id = htmlspecialchars(strip_tags($this->id));
-
-        // Bind id
         $stmt->bindParam(':id', $this->id);
 
-        // Execute query
         if($stmt->execute()){
             return true;
         }
         return false;
     }
 }
-?>
-

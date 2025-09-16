@@ -3,7 +3,6 @@ class Post {
     private $conn;
     private $table_name = "posts";
 
-    // Properties
     public $id;
     public $user_id;
     public $category_id;
@@ -11,117 +10,97 @@ class Post {
     public $slug;
     public $content;
     public $status;
+    public $image_urls;
 
     public function __construct($db){
         $this->conn = $db;
     }
 
-    // ✅ **ฟังก์ชันใหม่: ตรวจสอบว่า slug มีอยู่แล้วหรือไม่**
-    private function slugExists($slug){
-        $query = "SELECT id FROM " . $this->table_name . " WHERE slug = ? LIMIT 0,1";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(1, $slug);
-        $stmt->execute();
-        if($stmt->rowCount() > 0){
-            return true;
+    private function slugExists($slug, $ignoreId = null){
+        $query = "SELECT id FROM " . $this->table_name . " WHERE slug = :slug";
+        if ($ignoreId) {
+            $query .= " AND id != :id";
         }
-        return false;
+        $query .= " LIMIT 1";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':slug', $slug);
+        if ($ignoreId) {
+            $stmt->bindParam(':id', $ignoreId);
+        }
+        $stmt->execute();
+        return $stmt->rowCount() > 0;
     }
 
-    // ✅ **ฟังก์ชันใหม่: สร้าง slug ที่ไม่ซ้ำกัน**
-    private function generateUniqueSlug($title){
-        $baseSlug = strtolower(trim(preg_replace('/[^a-z0-9-]+/', '-', $title)));
+    private function generateUniqueSlug($name, $ignoreId = null){
+        $baseSlug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name)));
         $slug = $baseSlug;
         $counter = 1;
-        while($this->slugExists($slug)){
+        while($this->slugExists($slug, $ignoreId)){
             $slug = $baseSlug . '-' . $counter;
             $counter++;
         }
         return $slug;
     }
 
-    // CREATE Post (ฉบับปรับปรุง)
     function create(){
-        $query = "INSERT INTO " . $this->table_name . " 
-                  SET user_id=:user_id, category_id=:category_id, title=:title, slug=:slug, content=:content, status=:status";
+        $query = "INSERT INTO " . $this->table_name . "
+                  SET user_id=:user_id, title=:title, slug=:slug, content=:content, category_id=:category_id, status=:status, image_urls=:image_urls";
         
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize data
-        $this->title = htmlspecialchars(strip_tags($this->title));
-        $this->content = htmlspecialchars(strip_tags($this->content));
-        $this->status = htmlspecialchars(strip_tags($this->status));
-        $this->user_id = htmlspecialchars(strip_tags($this->user_id));
-        $this->category_id = htmlspecialchars(strip_tags($this->category_id));
-        
-        // ✅ **จุดแก้ไข:** เรียกใช้ฟังก์ชันสร้าง slug ที่ไม่ซ้ำกัน
+        $this->user_id = htmlspecialchars(strip_tags($this->user_id ?? ''));
+        $this->title = htmlspecialchars(strip_tags($this->title ?? ''));
+        $this->content = $this->content; // Allow some HTML
+        $this->category_id = htmlspecialchars(strip_tags($this->category_id ?? ''));
+        $this->status = htmlspecialchars(strip_tags($this->status ?? 'draft'));
+        $this->image_urls = htmlspecialchars(strip_tags($this->image_urls ?? ''));
         $this->slug = $this->generateUniqueSlug($this->title);
 
-        // Bind data
-        $stmt->bindParam(":title", $this->title);
-        $stmt->bindParam(":content", $this->content);
-        $stmt->bindParam(":status", $this->status);
-        $stmt->bindParam(":user_id", $this->user_id);
-        $stmt->bindParam(":category_id", $this->category_id);
-        $stmt->bindParam(":slug", $this->slug);
+        $stmt->bindParam(':user_id', $this->user_id);
+        $stmt->bindParam(':title', $this->title);
+        $stmt->bindParam(':content', $this->content);
+        $stmt->bindParam(':category_id', $this->category_id);
+        $stmt->bindParam(':status', $this->status);
+        $stmt->bindParam(':slug', $this->slug);
+        $stmt->bindParam(':image_urls', $this->image_urls);
 
         if($stmt->execute()){
+            $this->id = $this->conn->lastInsertId();
             return true;
         }
         return false;
     }
 
-    // READ All Posts
-    public function read() {
-        $query = "SELECT 
-                    c.name as category_name,
-                    u.username,
-                    p.id,
-                    p.user_id,
-                    p.category_id,
-                    p.title,
-                    p.content,
-                    p.status,
-                    p.view_count AS views,
-                    p.like_count AS likes,
-                    p.created_at
-                FROM " . $this->table_name . " p
-                LEFT JOIN categories c ON p.category_id = c.id
-                LEFT JOIN users u ON p.user_id = u.id
-                ORDER BY p.created_at DESC";
-
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute();
-        return $stmt;
-    }
-
-    // UPDATE Post (ฉบับปรับปรุง)
+    // ฟังก์ชัน update นี้ถูกต้องแล้ว สามารถรับค่า image_urls ได้
     function update(){
         $query = "UPDATE " . $this->table_name . "
-                  SET title = :title, content = :content, category_id = :category_id, status = :status, slug = :slug
+                  SET
+                    title = :title,
+                    slug = :slug,
+                    content = :content,
+                    category_id = :category_id,
+                    status = :status,
+                    image_urls = :image_urls
                   WHERE id = :id";
         
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize data
-        $this->id = htmlspecialchars(strip_tags($this->id));
-        $this->title = htmlspecialchars(strip_tags($this->title));
-        $this->content = htmlspecialchars(strip_tags($this->content));
-        $this->category_id = htmlspecialchars(strip_tags($this->category_id));
-        $this->status = htmlspecialchars(strip_tags($this->status));
-        
-        // ✅ **จุดแก้ไข:** สร้าง slug ใหม่ที่ไม่ซ้ำกัน (ยกเว้น slug ของตัวเอง)
-        // Note: For simplicity, this example creates a unique slug on every update.
-        // A more advanced version might only do this if the title changes.
-        $this->slug = $this->generateUniqueSlug($this->title);
+        $this->id = htmlspecialchars(strip_tags($this->id ?? ''));
+        $this->title = htmlspecialchars(strip_tags($this->title ?? ''));
+        $this->content = $this->content; // Allow some HTML
+        $this->category_id = htmlspecialchars(strip_tags($this->category_id ?? ''));
+        $this->status = htmlspecialchars(strip_tags($this->status ?? 'draft'));
+        $this->image_urls = htmlspecialchars(strip_tags($this->image_urls ?? ''));
+        $this->slug = $this->generateUniqueSlug($this->title, $this->id);
 
-        // Bind data
         $stmt->bindParam(':id', $this->id);
         $stmt->bindParam(':title', $this->title);
         $stmt->bindParam(':content', $this->content);
         $stmt->bindParam(':category_id', $this->category_id);
         $stmt->bindParam(':status', $this->status);
         $stmt->bindParam(':slug', $this->slug);
+        $stmt->bindParam(':image_urls', $this->image_urls);
 
         if($stmt->execute()){
             return true;
@@ -129,13 +108,11 @@ class Post {
         return false;
     }
     
-    // DELETE Post
     function delete(){
         $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
         $stmt = $this->conn->prepare($query);
         $this->id = htmlspecialchars(strip_tags($this->id));
         $stmt->bindParam(':id', $this->id);
-
         if($stmt->execute()){
             return true;
         }
@@ -143,4 +120,3 @@ class Post {
     }
 }
 ?>
-

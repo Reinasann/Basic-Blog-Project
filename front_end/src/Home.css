@@ -1,0 +1,268 @@
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap');
+
+:root {
+    --primary-color: #0d6efd;
+    --card-bg: #ffffff;
+    --card-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    --text-color: #212529;
+    --text-muted-color: #6c757d;
+    --body-bg: #f8f9fa;
+    --border-color: #dee2e6;
+}
+
+[data-bs-theme="dark"] {
+    --card-bg: #212529;
+    --card-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    --text-color: #dee2e6;
+    --text-muted-color: #adb5bd;
+    --body-bg: #121212;
+    --border-color: #343a40;
+}
+
+body {
+    font-family: 'Sarabun', sans-serif;
+    background-color: var(--body-bg) !important;
+    color: var(--text-color);
+}
+
+.navbar {
+    box-shadow: var(--card-shadow);
+}
+
+.blog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 2rem;
+}
+
+.post-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+}
+
+.post-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 20px rgba(0,0,0,0.15);
+}
+[data-bs-theme="dark"] .post-card:hover {
+    box-shadow: 0 12px 24px rgba(0,0,0,0.6);
+}
+
+.post-card-image-container {
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+}
+
+.post-card-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.post-card:hover .post-card-image {
+    transform: scale(1.05);
+}
+
+.post-card-content {
+    padding: 1.5rem;
+    color: var(--text-color);
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.post-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.post-card-title {
+    font-weight: 700;
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-color);
+}
+
+.post-card-header .bi-heart-fill {
+    color: #dc3545;
+    flex-shrink: 0;
+}
+
+.post-card-excerpt {
+    margin-bottom: 1rem;
+    color: var(--text-muted-color);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    flex-grow: 1;
+}
+
+.post-card-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.post-card-meta, .post-card-stats {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--text-muted-color);
+}
+
+.blog-modal .modal-content {
+    border-radius: 15px;
+    border: none;
+    box-shadow: var(--card-shadow);
+    background-color: var(--card-bg);
+}
+
+.blog-modal .modal-header {
+    border-bottom: none;
+    padding: 0;
+    position: relative;
+    /* This allows the close button to be positioned correctly even when there is no image */
+    min-height: 60px; 
+}
+
+/* === MODIFIED BUTTON STYLE === */
+.blog-modal .btn-close {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    z-index: 10;
+    border-radius: 50%;
+    padding: 0.5rem;
+    transition: background-color 0.2s ease;
+    border: 1px solid transparent;
+}
+
+/* Light mode: Dark icon on a light background for high contrast */
+[data-bs-theme="light"] .blog-modal .btn-close {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.1);
+    filter: none; /* Use default dark icon */
+}
+
+[data-bs-theme="light"] .blog-modal .btn-close:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode: White icon on a dark background */
+[data-bs-theme="dark"] .blog-modal .btn-close {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+[data-bs-theme="dark"] .blog-modal .btn-close:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+/* === END OF MODIFIED STYLE === */
+
+
+.blog-modal-featured-image {
+    width: 100%;
+    height: 350px;
+    object-fit: cover;
+    border-radius: 15px 15px 0 0;
+}
+
+.blog-modal-header-content {
+    padding: 2rem;
+    color: white;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.5) 50%, transparent 100%);
+    border-radius: 0 0 15px 15px;
+}
+
+.blog-modal-header-no-image {
+    padding: 2rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.blog-modal-header-no-image .blog-modal-title {
+    color: var(--text-color);
+}
+.blog-modal-header-no-image .blog-modal-meta {
+    color: var(--text-muted-color);
+}
+
+.blog-modal-title {
+    font-size: 2.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.blog-modal-meta {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.blog-modal .modal-body {
+    padding: 2rem;
+    line-height: 1.8;
+    font-size: 1.1rem;
+    color: var(--text-color);
+}
+
+.blog-modal-gallery {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    margin-top: 1.5rem;
+}
+
+.blog-modal-gallery img {
+    height: 150px;
+    width: auto;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.3s;
+}
+
+.blog-modal-gallery img:hover {
+    opacity: 0.8;
+}
+
+.comment-section {
+    margin-top: 2rem;
+}
+
+.comment {
+    background-color: var(--body-bg);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.comment strong { 
+    color: var(--primary-color); 
+}
+[data-bs-theme="dark"] .comment strong {
+    color: #6ea8fe;
+}
+
+.comment small { 
+    color: var(--text-muted-color); 
+}
+

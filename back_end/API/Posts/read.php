@@ -1,70 +1,55 @@
 <?php
+// เปิดการแสดงผล Error ทั้งหมดเพื่อช่วยในการหาบั๊ก
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 
-include_once '../../config/database.php';
-include_once '../../models/Post.php';
+// ✅ 1. ใช้ try...catch เพื่อดักจับ Error ทั้งหมดและป้องกันการส่งผลลัพธ์เป็น HTML
+try {
+    // ✅ 2. แก้ไข Path การเรียกไฟล์ให้แม่นยำ ทำงานได้ทั้งบน XAMPP และโฮสต์จริง
+    include_once dirname(__DIR__, 2) . '/config/database.php';
 
-$database = new Database();
-$db = $database->getConnection();
+    $database = new Database();
+    $db = $database->getConnection();
 
-// --- ส่วนของการอ่านข้อมูล ---
-// ✅ แก้ไข SQL Query ให้ดึงข้อมูลที่จำเป็นทั้งหมด
-$query = "
-    SELECT 
-        p.id,
-        p.user_id, 
-        p.title, 
-        p.content,
-        p.status,
-        p.category_id,
-        p.created_at, 
-        p.view_count AS views,
-        p.like_count AS likes,
-        u.username, 
-        c.name as category_name
-    FROM 
-        posts p
-    LEFT JOIN 
-        users u ON p.user_id = u.id
-    LEFT JOIN 
-        categories c ON p.category_id = c.id
-    ORDER BY 
-        p.created_at DESC
-";
+    // Query นี้ถูกต้องและสมบูรณ์แล้ว
+    $query = "
+        SELECT 
+            p.id, p.user_id, p.title, p.content, p.status, p.category_id, p.image_urls,
+            p.created_at, p.view_count AS views, p.like_count AS likes,
+            u.username, c.name as category_name,
+            (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comment_count
+        FROM posts p
+        LEFT JOIN users u ON p.user_id = u.id
+        LEFT JOIN categories c ON p.category_id = c.id
+        ORDER BY p.created_at DESC
+    ";
 
-$stmt = $db->prepare($query);
-$stmt->execute();
+    $stmt = $db->prepare($query);
+    $stmt->execute();
+    $num = $stmt->rowCount();
 
-$num = $stmt->rowCount();
-
-if ($num > 0) {
-    $posts_arr = array();
-    $posts_arr["records"] = array();
-
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        extract($row);
-        $post_item = array(
-            "id" => $id,
-            "user_id" => $user_id,
-            "title" => $title,
-            "content" => $content,
-            "status" => $status,
-            "category_id" => $category_id,
-            "username" => $username,
-            "category_name" => $category_name,
-            "views" => $views,
-            "likes" => $likes,
-            "created_at" => $created_at
-        );
-        array_push($posts_arr["records"], $post_item);
+    if ($num > 0) {
+        $posts_arr = ["records" => []];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            array_push($posts_arr["records"], $row);
+        }
+        http_response_code(200);
+        echo json_encode($posts_arr);
+    } else {
+        http_response_code(200); // ส่ง 200 OK แต่ records เป็น array ว่าง
+        echo json_encode(["records" => [], "message" => "No posts found."]);
     }
-
-    http_response_code(200);
-    echo json_encode($posts_arr);
-} else {
-    http_response_code(404);
-    echo json_encode(array("records" => [], "message" => "No posts found."));
+} catch (Exception $e) {
+    // ✅ 3. ถ้าเกิด Error ใดๆ ขึ้น จะส่งกลับเป็น JSON ที่มีรายละเอียดของ Error
+    http_response_code(500);
+    echo json_encode([
+        "success" => false, 
+        "message" => "Server Error.", 
+        "error" => $e->getMessage()
+    ]);
 }
 ?>
 
